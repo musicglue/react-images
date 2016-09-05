@@ -1586,6 +1586,8 @@ var _reactSwipeable = require('react-swipeable');
 
 var _reactSwipeable2 = _interopRequireDefault(_reactSwipeable);
 
+var _reactMotion = require('react-motion');
+
 var _theme = require('./theme');
 
 var _theme2 = _interopRequireDefault(_theme);
@@ -1634,7 +1636,7 @@ var Lightbox = (function (_Component) {
 			swipeDeltaX: 0
 		};
 
-		_utils.bindFunctions.call(this, ['gotoNext', 'gotoPrev', 'onSwipingLeft', 'onSwipingRight', 'handleKeyboardInput']);
+		_utils.bindFunctions.call(this, ['setImageRef', 'gotoNext', 'gotoPrev', 'onSwipingLeft', 'onSwipingRight', 'onStopSwiping', 'onMotionRest', 'handleKeyboardInput']);
 	}
 
 	_createClass(Lightbox, [{
@@ -1692,6 +1694,11 @@ var Lightbox = (function (_Component) {
 		// ==============================
 
 	}, {
+		key: 'setImageRef',
+		value: function setImageRef(ref) {
+			this.imageRef = ref;
+		}
+	}, {
 		key: 'preloadImage',
 		value: function preloadImage(idx) {
 			var image = this.props.images[idx];
@@ -1709,24 +1716,24 @@ var Lightbox = (function (_Component) {
 	}, {
 		key: 'gotoNext',
 		value: function gotoNext(event) {
-			if (this._isLastImage()) return;
+			if (this.isLastImage()) return;
 			if (event) {
 				event.preventDefault();
 				event.stopPropagation();
 			}
 			this.props.onClickNext();
-			this._resetSwipe();
+			this.resetSwipe();
 		}
 	}, {
 		key: 'gotoPrev',
 		value: function gotoPrev(event) {
-			if (this._isFirstImage()) return;
+			if (this.isFirstImage()) return;
 			if (event) {
 				event.preventDefault();
 				event.stopPropagation();
 			}
 			this.props.onClickPrev();
-			this._resetSwipe();
+			this.resetSwipe();
 		}
 	}, {
 		key: 'handleKeyboardInput',
@@ -1746,7 +1753,7 @@ var Lightbox = (function (_Component) {
 	}, {
 		key: 'onSwipingLeft',
 		value: function onSwipingLeft(e, deltaX) {
-			if (this._isLastImage()) return;
+			if (this.isLastImage()) return;
 			this.setState({
 				isSwipingLeft: true,
 				isSwipingRight: false,
@@ -1756,7 +1763,7 @@ var Lightbox = (function (_Component) {
 	}, {
 		key: 'onSwipingRight',
 		value: function onSwipingRight(e, deltaX) {
-			if (this._isFirstImage()) return;
+			if (this.isFirstImage()) return;
 			this.setState({
 				isSwipingLeft: false,
 				isSwipingRight: true,
@@ -1764,18 +1771,49 @@ var Lightbox = (function (_Component) {
 			});
 		}
 	}, {
-		key: '_isFirstImage',
-		value: function _isFirstImage() {
+		key: 'onStopSwiping',
+		value: function onStopSwiping() {
+			var windowWidth = window.innerWidth;
+			this.setState({
+				swipeDeltaX: windowWidth
+			});
+		}
+	}, {
+		key: 'onMotionRest',
+		value: function onMotionRest() {
+			var _this = this;
+
+			var wasSwipingLeft = this.state.isSwipingLeft;
+			var wasSwipingRight = this.state.isSwipingRight;
+			this.setState({
+				isSwipingLeft: false,
+				isSwipingRight: false
+			}, function () {
+				var fakeEvent = {
+					preventDefault: function preventDefault() {},
+					stopPropagation: function stopPropagation() {}
+				};
+
+				if (wasSwipingLeft) {
+					_this.gotoNext(fakeEvent);
+				} else if (wasSwipingRight) {
+					_this.gotoPrev(fakeEvent);
+				}
+			});
+		}
+	}, {
+		key: 'isFirstImage',
+		value: function isFirstImage() {
 			return this.props.currentImage === 0;
 		}
 	}, {
-		key: '_isLastImage',
-		value: function _isLastImage() {
+		key: 'isLastImage',
+		value: function isLastImage() {
 			return this.props.currentImage === this.props.images.length - 1;
 		}
 	}, {
-		key: '_resetSwipe',
-		value: function _resetSwipe() {
+		key: 'resetSwipe',
+		value: function resetSwipe() {
 			this.setState({
 				isSwipingLeft: false,
 				isSwipingRight: false,
@@ -1858,6 +1896,8 @@ var Lightbox = (function (_Component) {
 	}, {
 		key: 'renderImages',
 		value: function renderImages() {
+			var _this2 = this;
+
 			var _props2 = this.props;
 			var currentImage = _props2.currentImage;
 			var images = _props2.images;
@@ -1870,9 +1910,17 @@ var Lightbox = (function (_Component) {
 
 			var image = images[currentImage];
 
-			var imageLeft = this.state.isSwipingRight ? images[currentImage - 1] : null;
-			var imageRight = this.state.isSwipingLeft ? images[currentImage + 1] : null;
-			var deltaX = this.state.isSwipingRight ? this.state.swipeDeltaX : this.state.isSwipingLeft ? -this.state.swipeDeltaX : 0;
+			var imageLeft = undefined;
+			var imageRight = undefined;
+			var deltaX = undefined;
+			var motionStyle = { deltaX: 0 };
+			if (this.state.isSwipingRight) {
+				imageLeft = images[currentImage - 1];
+				motionStyle = { deltaX: (0, _reactMotion.spring)(this.state.swipeDeltaX) };
+			} else if (this.state.isSwipingLeft) {
+				imageRight = images[currentImage + 1];
+				motionStyle = { deltaX: (0, _reactMotion.spring)(-this.state.swipeDeltaX) };
+			}
 
 			var srcset = undefined;
 			var sizes = undefined;
@@ -1891,58 +1939,107 @@ var Lightbox = (function (_Component) {
 				_react2['default'].createElement(
 					_reactSwipeable2['default'],
 					{
-						onSwipedLeft: this.gotoNext,
-						onSwipedRight: this.gotoPrev,
+						onSwipedLeft: this.onStopSwiping,
+						onSwipedRight: this.onStopSwiping,
 						onSwipingLeft: this.onSwipingLeft,
 						onSwipingRight: this.onSwipingRight
 					},
-					imageLeft ? _react2['default'].createElement('img', {
-						className: (0, _aphroditeNoImportant.css)(classes.image),
-						sizes: sizes,
-						src: imageLeft.src,
-						style: {
-							cursor: this.props.onClickImage ? 'pointer' : 'auto',
-							//maxHeight: `calc(100vh - ${heightOffset})`,
-							marginLeft: 'calc(-100vw + ' + deltaX + 'px)',
-							position: 'absolute',
-							top: '50%',
-							left: '50%',
-							transform: 'translate(-50%, -50%)'
+					imageLeft ? _react2['default'].createElement(
+						_reactMotion.Motion,
+						{ style: motionStyle },
+						function (_ref) {
+							var deltaX = _ref.deltaX;
+							return _react2['default'].createElement(
+								'div',
+								{
+									className: (0, _aphroditeNoImportant.css)(classes.imageContainer),
+									style: { marginLeft: -window.innerWidth + deltaX }
+								},
+								_react2['default'].createElement('img', {
+									className: (0, _aphroditeNoImportant.css)(classes.image),
+									sizes: sizes,
+									src: imageLeft.src,
+									style: {
+										cursor: _this2.props.onClickImage ? 'pointer' : 'auto',
+										maxHeight: 'calc(100vh - ' + heightOffset + ')'
+									}
+								}),
+								_react2['default'].createElement(_componentsFooter2['default'], {
+									caption: images[currentImage].caption,
+									countCurrent: currentImage + 1,
+									countSeparator: imageCountSeparator,
+									countTotal: images.length,
+									showCount: showImageCount
+								})
+							);
 						}
-					}) : null,
-					_react2['default'].createElement('img', {
-						className: (0, _aphroditeNoImportant.css)(classes.image),
-						onClick: !!onClickImage && onClickImage,
-						sizes: sizes,
-						src: image.src,
-						srcSet: srcset,
-						style: {
-							cursor: this.props.onClickImage ? 'pointer' : 'auto',
-							//maxHeight: `calc(100vh - ${heightOffset})`,
-							marginLeft: deltaX
+					) : null,
+					_react2['default'].createElement(
+						_reactMotion.Motion,
+						{
+							style: motionStyle,
+							onRest: this.onMotionRest
+						},
+						function (_ref2) {
+							var deltaX = _ref2.deltaX;
+							return _react2['default'].createElement(
+								'div',
+								{
+									className: (0, _aphroditeNoImportant.css)(classes.imageContainer),
+									style: { marginLeft: deltaX }
+								},
+								_react2['default'].createElement('img', {
+									ref: _this2.setImageRef,
+									className: (0, _aphroditeNoImportant.css)(classes.image),
+									onClick: !!onClickImage && onClickImage,
+									sizes: sizes,
+									src: image.src,
+									srcSet: srcset,
+									style: {
+										cursor: _this2.props.onClickImage ? 'pointer' : 'auto',
+										maxHeight: 'calc(100vh - ' + heightOffset + ')'
+									}
+								}),
+								_react2['default'].createElement(_componentsFooter2['default'], {
+									caption: images[currentImage].caption,
+									countCurrent: currentImage + 1,
+									countSeparator: imageCountSeparator,
+									countTotal: images.length,
+									showCount: showImageCount
+								})
+							);
 						}
-					}),
-					imageRight ? _react2['default'].createElement('img', {
-						className: (0, _aphroditeNoImportant.css)(classes.image),
-						sizes: sizes,
-						src: imageRight.src,
-						style: {
-							cursor: this.props.onClickImage ? 'pointer' : 'auto',
-							//maxHeight: `calc(100vh - ${heightOffset})`,
-							marginLeft: 'calc(100vw + ' + deltaX + 'px)',
-							position: 'absolute',
-							top: '50%',
-							left: '50%',
-							transform: 'translate(-50%, -50%)'
+					),
+					imageRight ? _react2['default'].createElement(
+						_reactMotion.Motion,
+						{ style: motionStyle },
+						function (_ref3) {
+							var deltaX = _ref3.deltaX;
+							return _react2['default'].createElement(
+								'div',
+								{
+									className: (0, _aphroditeNoImportant.css)(classes.imageContainer),
+									style: { marginLeft: window.innerWidth + deltaX }
+								},
+								_react2['default'].createElement('img', {
+									className: (0, _aphroditeNoImportant.css)(classes.image),
+									sizes: sizes,
+									src: imageRight.src,
+									style: {
+										cursor: _this2.props.onClickImage ? 'pointer' : 'auto',
+										maxHeight: 'calc(100vh - ' + heightOffset + ')'
+									}
+								}),
+								_react2['default'].createElement(_componentsFooter2['default'], {
+									caption: images[currentImage].caption,
+									countCurrent: currentImage + 1,
+									countSeparator: imageCountSeparator,
+									countTotal: images.length,
+									showCount: showImageCount
+								})
+							);
 						}
-					}) : null,
-					_react2['default'].createElement(_componentsFooter2['default'], {
-						caption: images[currentImage].caption,
-						countCurrent: currentImage + 1,
-						countSeparator: imageCountSeparator,
-						countTotal: images.length,
-						showCount: showImageCount
-					})
+					) : null
 				)
 			);
 		}
@@ -2023,11 +2120,19 @@ Lightbox.childContextTypes = {
 
 var classes = _aphroditeNoImportant.StyleSheet.create({
 	content: {
-		position: 'relative'
+		position: 'relative',
+		width: '100%'
 	},
 	figure: {
 		margin: 0 },
 	// remove browser default
+	imageContainer: {
+		position: 'absolute',
+		top: '50%',
+		left: '50%',
+		transform: 'translate(-50%, -50%)',
+		width: '100%'
+	},
 	image: {
 		display: 'block', // removes browser default gutter
 		height: 'auto',
@@ -2044,7 +2149,7 @@ exports['default'] = Lightbox;
 module.exports = exports['default'];
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./components/Arrow":25,"./components/Container":26,"./components/Footer":27,"./components/Header":28,"./components/PaginatedThumbnails":30,"./components/Portal":32,"./components/ScrollLock":33,"./theme":39,"./utils":43,"aphrodite/no-important":6,"react-swipeable":undefined}],25:[function(require,module,exports){
+},{"./components/Arrow":25,"./components/Container":26,"./components/Footer":27,"./components/Header":28,"./components/PaginatedThumbnails":30,"./components/Portal":32,"./components/ScrollLock":33,"./theme":39,"./utils":43,"aphrodite/no-important":6,"react-motion":undefined,"react-swipeable":undefined}],25:[function(require,module,exports){
 (function (global){
 'use strict';
 

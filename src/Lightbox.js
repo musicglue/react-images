@@ -1,6 +1,7 @@
 import React, { Component, PropTypes } from 'react';
 import { css, StyleSheet } from 'aphrodite/no-important';
- import Swipeable from 'react-swipeable';
+import Swipeable from 'react-swipeable';
+import {Motion, spring} from 'react-motion';
 
 import theme from './theme';
 import Arrow from './components/Arrow';
@@ -24,10 +25,13 @@ class Lightbox extends Component {
 		}
 
 		bindFunctions.call(this, [
+			'setImageRef',
 			'gotoNext',
 			'gotoPrev',
 			'onSwipingLeft',
 			'onSwipingRight',
+			'onStopSwiping',
+			'onMotionRest',
 			'handleKeyboardInput',
 		]);
 	}
@@ -79,6 +83,9 @@ class Lightbox extends Component {
 	// METHODS
 	// ==============================
 
+	setImageRef (ref) {
+		this.imageRef = ref;
+	}
 	preloadImage (idx) {
 		const image = this.props.images[idx];
 
@@ -93,23 +100,23 @@ class Lightbox extends Component {
 		}
 	}
 	gotoNext (event) {
-		if (this._isLastImage()) return;
+		if (this.isLastImage()) return;
 		if (event) {
 			event.preventDefault();
 			event.stopPropagation();
 		}
 		this.props.onClickNext();
-		this._resetSwipe();
+		this.resetSwipe();
 
 	}
 	gotoPrev (event) {
-		if (this._isFirstImage()) return;
+		if (this.isFirstImage()) return;
 		if (event) {
 			event.preventDefault();
 			event.stopPropagation();
 		}
 		this.props.onClickPrev();
-		this._resetSwipe();
+		this.resetSwipe();
 
 	}
 	handleKeyboardInput (event) {
@@ -127,7 +134,7 @@ class Lightbox extends Component {
 
 	}
 	onSwipingLeft (e, deltaX) {
-		if (this._isLastImage()) return;
+		if (this.isLastImage()) return;
 		this.setState({
 			isSwipingLeft: true,
 			isSwipingRight: false,
@@ -135,20 +142,47 @@ class Lightbox extends Component {
 		})
 	}
 	onSwipingRight (e, deltaX) {
-		if (this._isFirstImage()) return;
+		if (this.isFirstImage()) return;
 		this.setState({
 			isSwipingLeft: false,
 			isSwipingRight: true,
 			swipeDeltaX: deltaX
 		})
 	}
-	_isFirstImage() {
+	onStopSwiping () {
+		let windowWidth = window.innerWidth;
+		this.setState({
+			swipeDeltaX: windowWidth
+		})
+
+	}
+	onMotionRest () {
+		const wasSwipingLeft = this.state.isSwipingLeft;
+		const wasSwipingRight = this.state.isSwipingRight;
+		this.setState({
+			isSwipingLeft: false,
+			isSwipingRight: false
+		}, () => {
+			const fakeEvent = {
+				preventDefault: () => {},
+				stopPropagation: () => {}
+			}
+
+			if (wasSwipingLeft) {
+				this.gotoNext(fakeEvent)
+			}
+			else if (wasSwipingRight) {
+				this.gotoPrev(fakeEvent)
+			}
+		})
+	}
+	isFirstImage() {
 		return this.props.currentImage === 0;
 	}
-	_isLastImage () {
+	isLastImage () {
 		return this.props.currentImage === (this.props.images.length - 1);
 	}
-	_resetSwipe() {
+	resetSwipe() {
 		this.setState({
 			isSwipingLeft: false,
 			isSwipingRight: false,
@@ -239,9 +273,18 @@ class Lightbox extends Component {
 
 		const image = images[currentImage];
 
-		const imageLeft = this.state.isSwipingRight ? images[currentImage - 1] : null;
-		const imageRight = this.state.isSwipingLeft ? images[currentImage + 1] : null;
-		const deltaX = this.state.isSwipingRight ? this.state.swipeDeltaX : this.state.isSwipingLeft ? -this.state.swipeDeltaX : 0;
+		let imageLeft;
+		let imageRight;
+		let deltaX;
+		let motionStyle = { deltaX: 0 };
+		if (this.state.isSwipingRight) {
+			imageLeft = images[currentImage - 1];
+			motionStyle = { deltaX: spring(this.state.swipeDeltaX) };
+		}
+		else if (this.state.isSwipingLeft) {
+			imageRight = images[currentImage + 1];
+			motionStyle = { deltaX: spring(-this.state.swipeDeltaX) };
+		}
 
 		let srcset;
 		let sizes;
@@ -257,69 +300,104 @@ class Lightbox extends Component {
 		return (
 			<figure className={css(classes.figure)}>
 				<Swipeable
-					onSwipedLeft={this.gotoNext}
-					onSwipedRight={this.gotoPrev}
+					onSwipedLeft={this.onStopSwiping}
+					onSwipedRight={this.onStopSwiping}
 					onSwipingLeft={this.onSwipingLeft}
 					onSwipingRight={this.onSwipingRight}
 				>
 
 					{
 						imageLeft ?
-							<img
-								className={css(classes.image)}
-								sizes={sizes}
-								src={imageLeft.src}
-								style={{
-									cursor: this.props.onClickImage ? 'pointer' : 'auto',
-									//maxHeight: `calc(100vh - ${heightOffset})`,
-									marginLeft: `calc(-100vw + ${deltaX}px)`,
-									position: 'absolute',
-									top: '50%',
-									left: '50%',
-									transform: 'translate(-50%, -50%)'
-								}}
-							/>
+							<Motion style={motionStyle}>
+								{({deltaX}) => (
+									<div
+										className={css(classes.imageContainer)}
+										style={{ marginLeft: -window.innerWidth + deltaX }}
+									>
+										<img
+											className={css(classes.image)}
+											sizes={sizes}
+											src={imageLeft.src}
+											style={{
+												cursor: this.props.onClickImage ? 'pointer' : 'auto',
+												maxHeight: `calc(100vh - ${heightOffset})`,
+											}}
+										/>
+
+										<Footer
+											caption={images[currentImage].caption}
+											countCurrent={currentImage + 1}
+											countSeparator={imageCountSeparator}
+											countTotal={images.length}
+											showCount={showImageCount}
+										/>
+									</div>
+								)}
+							</Motion>
 							:
 							null
 					}
-					<img
-						className={css(classes.image)}
-						onClick={!!onClickImage && onClickImage}
-						sizes={sizes}
-						src={image.src}
-						srcSet={srcset}
-						style={{
-							cursor: this.props.onClickImage ? 'pointer' : 'auto',
-							//maxHeight: `calc(100vh - ${heightOffset})`,
-							marginLeft: deltaX,
-						}}
-					/>
+					<Motion
+						style={motionStyle}
+						onRest={this.onMotionRest}
+					>
+						{({deltaX}) => (
+							<div
+								className={css(classes.imageContainer)}
+								style={{ marginLeft: deltaX }}
+							>
+								<img
+									ref={this.setImageRef}
+									className={css(classes.image)}
+									onClick={!!onClickImage && onClickImage}
+									sizes={sizes}
+									src={image.src}
+									srcSet={srcset}
+									style={{
+										cursor: this.props.onClickImage ? 'pointer' : 'auto',
+										maxHeight: `calc(100vh - ${heightOffset})`,
+									}}
+								/>
+								<Footer
+									caption={images[currentImage].caption}
+									countCurrent={currentImage + 1}
+									countSeparator={imageCountSeparator}
+									countTotal={images.length}
+									showCount={showImageCount}
+								/>
+							</div>
+						)}
+					</Motion>
 					{
 						imageRight ?
-							<img
-								className={css(classes.image)}
-								sizes={sizes}
-								src={imageRight.src}
-								style={{
-									cursor: this.props.onClickImage ? 'pointer' : 'auto',
-									//maxHeight: `calc(100vh - ${heightOffset})`,
-									marginLeft: `calc(100vw + ${deltaX}px)`,
-									position: 'absolute',
-									top: '50%',
-									left: '50%',
-									transform: 'translate(-50%, -50%)'
-								}}
-							/>
+							<Motion style={motionStyle}>
+								{({deltaX}) => (
+									<div
+										className={css(classes.imageContainer)}
+										style={{ marginLeft: window.innerWidth + deltaX }}
+									>
+										<img
+											className={css(classes.image)}
+											sizes={sizes}
+											src={imageRight.src}
+											style={{
+												cursor: this.props.onClickImage ? 'pointer' : 'auto',
+												maxHeight: `calc(100vh - ${heightOffset})`,
+											}}
+										/>
+										<Footer
+											caption={images[currentImage].caption}
+											countCurrent={currentImage + 1}
+											countSeparator={imageCountSeparator}
+											countTotal={images.length}
+											showCount={showImageCount}
+										/>
+									</div>
+									)}
+								</Motion>
 							:
 							null
 					}
-					<Footer
-						caption={images[currentImage].caption}
-						countCurrent={currentImage + 1}
-						countSeparator={imageCountSeparator}
-						countTotal={images.length}
-						showCount={showImageCount}
-					/>
 				</Swipeable>
 			</figure>
 		);
@@ -394,9 +472,17 @@ Lightbox.childContextTypes = {
 const classes = StyleSheet.create({
 	content: {
 		position: 'relative',
+		width: '100%'
 	},
 	figure: {
 		margin: 0, // remove browser default
+	},
+	imageContainer: {
+		position: 'absolute',
+		top: '50%',
+		left: '50%',
+		transform: 'translate(-50%, -50%)',
+		width: '100%'
 	},
 	image: {
 		display: 'block', // removes browser default gutter
