@@ -1582,7 +1582,11 @@ var _react2 = _interopRequireDefault(_react);
 
 var _aphroditeNoImportant = require('aphrodite/no-important');
 
-// import Swipeable from 'react-swipeable';
+var _reactSwipeable = require('react-swipeable');
+
+var _reactSwipeable2 = _interopRequireDefault(_reactSwipeable);
+
+var _reactMotion = require('react-motion');
 
 var _theme = require('./theme');
 
@@ -1612,6 +1616,10 @@ var _componentsPortal = require('./components/Portal');
 
 var _componentsPortal2 = _interopRequireDefault(_componentsPortal);
 
+var _componentsScrollLock = require('./components/ScrollLock');
+
+var _componentsScrollLock2 = _interopRequireDefault(_componentsScrollLock);
+
 var _utils = require('./utils');
 
 var Lightbox = (function (_Component) {
@@ -1622,7 +1630,13 @@ var Lightbox = (function (_Component) {
 
 		_get(Object.getPrototypeOf(Lightbox.prototype), 'constructor', this).call(this);
 
-		_utils.bindFunctions.call(this, ['gotoNext', 'gotoPrev', 'handleKeyboardInput']);
+		this.state = {
+			isSwipingLeft: false,
+			isSwipingRight: false,
+			swipeDeltaX: 0
+		};
+
+		_utils.bindFunctions.call(this, ['gotoNext', 'gotoPrev', 'onSwipingLeft', 'onSwipingRight', 'onStopSwiping', 'onMotionRest', 'handleKeyboardInput']);
 	}
 
 	_createClass(Lightbox, [{
@@ -1666,12 +1680,12 @@ var Lightbox = (function (_Component) {
 			} else {
 				window.removeEventListener('keydown', this.handleKeyboardInput);
 			}
-
-			// handle body scroll
-			if (nextProps.isOpen) {
-				_utils.bodyScroll.blockScroll();
-			} else {
-				_utils.bodyScroll.allowScroll();
+		}
+	}, {
+		key: 'componentWillUnmount',
+		value: function componentWillUnmount() {
+			if (this.props.enableKeyboardInput) {
+				window.removeEventListener('keydown', this.handleKeyboardInput);
 			}
 		}
 
@@ -1697,22 +1711,22 @@ var Lightbox = (function (_Component) {
 	}, {
 		key: 'gotoNext',
 		value: function gotoNext(event) {
-			if (this.props.currentImage === this.props.images.length - 1) return;
+			if (this.isLastImage()) return;
 			if (event) {
 				event.preventDefault();
 				event.stopPropagation();
 			}
-			this.props.onClickNext();
+			this.resetSwipe(this.props.onClickNext);
 		}
 	}, {
 		key: 'gotoPrev',
 		value: function gotoPrev(event) {
-			if (this.props.currentImage === 0) return;
+			if (this.isFirstImage()) return;
 			if (event) {
 				event.preventDefault();
 				event.stopPropagation();
 			}
-			this.props.onClickPrev();
+			this.resetSwipe(this.props.onClickPrev);
 		}
 	}, {
 		key: 'handleKeyboardInput',
@@ -1728,6 +1742,78 @@ var Lightbox = (function (_Component) {
 				return true;
 			}
 			return false;
+		}
+	}, {
+		key: 'onSwipingLeft',
+		value: function onSwipingLeft(e, deltaX) {
+			if (this.isLastImage()) return;
+			this.setState({
+				isSwipingLeft: true,
+				isSwipingRight: false,
+				swipeDeltaX: deltaX
+			});
+		}
+	}, {
+		key: 'onSwipingRight',
+		value: function onSwipingRight(e, deltaX) {
+			if (this.isFirstImage()) return;
+			this.setState({
+				isSwipingLeft: false,
+				isSwipingRight: true,
+				swipeDeltaX: deltaX
+			});
+		}
+	}, {
+		key: 'onStopSwiping',
+		value: function onStopSwiping() {
+			var windowWidth = window.innerWidth;
+			this.setState({
+				swipeDeltaX: windowWidth
+			});
+		}
+	}, {
+		key: 'onMotionRest',
+		value: function onMotionRest() {
+			var _this = this;
+
+			var wasSwipingLeft = this.state.isSwipingLeft;
+			var wasSwipingRight = this.state.isSwipingRight;
+			this.setState({
+				isSwipingLeft: false,
+				isSwipingRight: false
+			}, function () {
+				var fakeEvent = {
+					preventDefault: function preventDefault() {},
+					stopPropagation: function stopPropagation() {}
+				};
+
+				if (wasSwipingLeft) {
+					_this.gotoNext(fakeEvent);
+				} else if (wasSwipingRight) {
+					_this.gotoPrev(fakeEvent);
+				}
+			});
+		}
+	}, {
+		key: 'isFirstImage',
+		value: function isFirstImage() {
+			return this.props.currentImage === 0;
+		}
+	}, {
+		key: 'isLastImage',
+		value: function isLastImage() {
+			return this.props.currentImage === this.props.images.length - 1;
+		}
+	}, {
+		key: 'resetSwipe',
+		value: function resetSwipe(onReset) {
+			this.setState({
+				isSwipingLeft: false,
+				isSwipingRight: false,
+				swipeDeltaX: 0
+			}, function () {
+				onReset ? onReset() : null;
+			});
 		}
 
 		// ==============================
@@ -1798,12 +1884,15 @@ var Lightbox = (function (_Component) {
 				),
 				this.renderThumbnails(),
 				this.renderArrowPrev(),
-				this.renderArrowNext()
+				this.renderArrowNext(),
+				_react2['default'].createElement(_componentsScrollLock2['default'], null)
 			);
 		}
 	}, {
 		key: 'renderImages',
 		value: function renderImages() {
+			var _this2 = this;
+
 			var _props2 = this.props;
 			var currentImage = _props2.currentImage;
 			var images = _props2.images;
@@ -1815,6 +1904,18 @@ var Lightbox = (function (_Component) {
 			if (!images || !images.length) return null;
 
 			var image = images[currentImage];
+
+			var imageLeft = undefined;
+			var imageRight = undefined;
+			var deltaX = undefined;
+			var motionStyle = { deltaX: 0 };
+			if (this.state.isSwipingRight) {
+				imageLeft = images[currentImage - 1];
+				motionStyle = { deltaX: (0, _reactMotion.spring)(this.state.swipeDeltaX) };
+			} else if (this.state.isSwipingLeft) {
+				imageRight = images[currentImage + 1];
+				motionStyle = { deltaX: (0, _reactMotion.spring)(-this.state.swipeDeltaX) };
+			}
 
 			var srcset = undefined;
 			var sizes = undefined;
@@ -1830,24 +1931,100 @@ var Lightbox = (function (_Component) {
 			return _react2['default'].createElement(
 				'figure',
 				{ className: (0, _aphroditeNoImportant.css)(classes.figure) },
-				_react2['default'].createElement('img', {
-					className: (0, _aphroditeNoImportant.css)(classes.image),
-					onClick: !!onClickImage && onClickImage,
-					sizes: sizes,
-					src: image.src,
-					srcSet: srcset,
-					style: {
-						cursor: this.props.onClickImage ? 'pointer' : 'auto',
-						maxHeight: 'calc(100vh - ' + heightOffset + ')'
-					}
-				}),
-				_react2['default'].createElement(_componentsFooter2['default'], {
-					caption: images[currentImage].caption,
-					countCurrent: currentImage + 1,
-					countSeparator: imageCountSeparator,
-					countTotal: images.length,
-					showCount: showImageCount
-				})
+				_react2['default'].createElement(
+					_reactSwipeable2['default'],
+					{
+						onSwipedLeft: this.onStopSwiping,
+						onSwipedRight: this.onStopSwiping,
+						onSwipingLeft: this.onSwipingLeft,
+						onSwipingRight: this.onSwipingRight
+					},
+					_react2['default'].createElement(
+						_reactMotion.Motion,
+						{
+							style: motionStyle,
+							onRest: this.onMotionRest
+						},
+						function (_ref) {
+							var deltaX = _ref.deltaX;
+							return _react2['default'].createElement(
+								'div',
+								null,
+								imageLeft ? _react2['default'].createElement(
+									'div',
+									{
+										className: (0, _aphroditeNoImportant.css)(classes.imageContainer),
+										style: { marginLeft: -window.innerWidth + deltaX }
+									},
+									_react2['default'].createElement('img', {
+										className: (0, _aphroditeNoImportant.css)(classes.image),
+										sizes: sizes,
+										src: imageLeft.src,
+										style: {
+											cursor: _this2.props.onClickImage ? 'pointer' : 'auto',
+											maxHeight: 'calc(100vh - ' + heightOffset + ')'
+										}
+									}),
+									_react2['default'].createElement(_componentsFooter2['default'], {
+										caption: images[currentImage - 1].caption,
+										countCurrent: currentImage,
+										countSeparator: imageCountSeparator,
+										countTotal: images.length,
+										showCount: showImageCount
+									})
+								) : null,
+								_react2['default'].createElement(
+									'div',
+									{
+										className: (0, _aphroditeNoImportant.css)(classes.imageContainer),
+										style: { marginLeft: deltaX }
+									},
+									_react2['default'].createElement('img', {
+										className: (0, _aphroditeNoImportant.css)(classes.image),
+										onClick: !!onClickImage && onClickImage,
+										sizes: sizes,
+										src: image.src,
+										srcSet: srcset,
+										style: {
+											cursor: _this2.props.onClickImage ? 'pointer' : 'auto',
+											maxHeight: 'calc(100vh - ' + heightOffset + ')'
+										}
+									}),
+									_react2['default'].createElement(_componentsFooter2['default'], {
+										caption: images[currentImage].caption,
+										countCurrent: currentImage + 1,
+										countSeparator: imageCountSeparator,
+										countTotal: images.length,
+										showCount: showImageCount
+									})
+								),
+								imageRight ? _react2['default'].createElement(
+									'div',
+									{
+										className: (0, _aphroditeNoImportant.css)(classes.imageContainer),
+										style: { marginLeft: window.innerWidth + deltaX }
+									},
+									_react2['default'].createElement('img', {
+										className: (0, _aphroditeNoImportant.css)(classes.image),
+										sizes: sizes,
+										src: imageRight.src,
+										style: {
+											cursor: _this2.props.onClickImage ? 'pointer' : 'auto',
+											maxHeight: 'calc(100vh - ' + heightOffset + ')'
+										}
+									}),
+									_react2['default'].createElement(_componentsFooter2['default'], {
+										caption: images[currentImage + 1].caption,
+										countCurrent: currentImage + 2,
+										countSeparator: imageCountSeparator,
+										countTotal: images.length,
+										showCount: showImageCount
+									})
+								) : null
+							);
+						}
+					)
+				)
 			);
 		}
 	}, {
@@ -1872,7 +2049,6 @@ var Lightbox = (function (_Component) {
 	}, {
 		key: 'render',
 		value: function render() {
-			// return this.renderDialog();
 			return _react2['default'].createElement(
 				_componentsPortal2['default'],
 				null,
@@ -1928,11 +2104,20 @@ Lightbox.childContextTypes = {
 
 var classes = _aphroditeNoImportant.StyleSheet.create({
 	content: {
-		position: 'relative'
+		position: 'relative',
+		width: '100%'
 	},
 	figure: {
 		margin: 0 },
 	// remove browser default
+	imageContainer: {
+		position: 'absolute',
+		top: '50%',
+		left: '50%',
+		transform: 'translate(-50%, -50%)',
+		width: '100%',
+		marginTop: _theme2['default'].footer.height / 2
+	},
 	image: {
 		display: 'block', // removes browser default gutter
 		height: 'auto',
@@ -1947,14 +2132,9 @@ var classes = _aphroditeNoImportant.StyleSheet.create({
 
 exports['default'] = Lightbox;
 module.exports = exports['default'];
-/*
-Re-implement when react warning "unknown props"
-https://fb.me/react-unknown-prop is resolved
-<Swipeable onSwipedLeft={this.gotoNext} onSwipedRight={this.gotoPrev} />
-*/
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./components/Arrow":25,"./components/Container":26,"./components/Footer":27,"./components/Header":28,"./components/PaginatedThumbnails":30,"./components/Portal":32,"./theme":38,"./utils":43,"aphrodite/no-important":6}],25:[function(require,module,exports){
+},{"./components/Arrow":25,"./components/Container":26,"./components/Footer":27,"./components/Header":28,"./components/PaginatedThumbnails":30,"./components/Portal":32,"./components/ScrollLock":33,"./theme":39,"./utils":43,"aphrodite/no-important":6,"react-motion":undefined,"react-swipeable":undefined}],25:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -2065,7 +2245,7 @@ var defaultStyles = {
 module.exports = Arrow;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"../theme":38,"../utils":43,"./Icon":29,"aphrodite/no-important":6}],26:[function(require,module,exports){
+},{"../theme":39,"../utils":43,"./Icon":29,"aphrodite/no-important":6}],26:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -2126,7 +2306,7 @@ var defaultStyles = {
 module.exports = Container;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"../theme":38,"../utils":43,"aphrodite/no-important":6}],27:[function(require,module,exports){
+},{"../theme":39,"../utils":43,"aphrodite/no-important":6}],27:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -2203,6 +2383,7 @@ var defaultStyles = {
 		justifyContent: 'space-between',
 		left: 0,
 		lineHeight: 1.3,
+		height: _theme2['default'].footer.height,
 		paddingBottom: _theme2['default'].footer.gutter.vertical,
 		paddingLeft: _theme2['default'].footer.gutter.horizontal,
 		paddingRight: _theme2['default'].footer.gutter.horizontal,
@@ -2221,7 +2402,7 @@ var defaultStyles = {
 module.exports = Footer;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"../theme":38,"../utils":43,"aphrodite/no-important":6}],28:[function(require,module,exports){
+},{"../theme":39,"../utils":43,"aphrodite/no-important":6}],28:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -2309,7 +2490,7 @@ var defaultStyles = {
 module.exports = Header;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"../theme":38,"../utils":43,"./Icon":29,"aphrodite/no-important":6}],29:[function(require,module,exports){
+},{"../theme":39,"../utils":43,"./Icon":29,"aphrodite/no-important":6}],29:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -2356,7 +2537,7 @@ exports['default'] = Icon;
 module.exports = exports['default'];
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"../icons":37}],30:[function(require,module,exports){
+},{"../icons":38}],30:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -2588,7 +2769,7 @@ PaginatedThumbnails.propTypes = {
 module.exports = exports['default'];
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"../theme":38,"./Arrow":25,"./Thumbnail":33,"aphrodite/no-important":6}],31:[function(require,module,exports){
+},{"../theme":39,"./Arrow":25,"./Thumbnail":34,"aphrodite/no-important":6}],31:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -2756,6 +2937,91 @@ Object.defineProperty(exports, '__esModule', {
 	value: true
 });
 
+var _createClass = (function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ('value' in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; })();
+
+var _get = function get(_x, _x2, _x3) { var _again = true; _function: while (_again) { var object = _x, property = _x2, receiver = _x3; _again = false; if (object === null) object = Function.prototype; var desc = Object.getOwnPropertyDescriptor(object, property); if (desc === undefined) { var parent = Object.getPrototypeOf(object); if (parent === null) { return undefined; } else { _x = parent; _x2 = property; _x3 = receiver; _again = true; desc = parent = undefined; continue _function; } } else if ('value' in desc) { return desc.value; } else { var getter = desc.get; if (getter === undefined) { return undefined; } return getter.call(receiver); } } };
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError('Cannot call a class as a function'); } }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== 'function' && superClass !== null) { throw new TypeError('Super expression must either be null or a function, not ' + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var _react = (typeof window !== "undefined" ? window['React'] : typeof global !== "undefined" ? global['React'] : null);
+
+var _react2 = _interopRequireDefault(_react);
+
+var lockCount = 0;
+
+var ScrollLock = (function (_Component) {
+	_inherits(ScrollLock, _Component);
+
+	function ScrollLock() {
+		_classCallCheck(this, ScrollLock);
+
+		_get(Object.getPrototypeOf(ScrollLock.prototype), 'constructor', this).apply(this, arguments);
+	}
+
+	_createClass(ScrollLock, [{
+		key: 'componentWillMount',
+		value: function componentWillMount() {
+			if (typeof window === 'undefined') return;
+
+			lockCount++;
+			if (lockCount > 1) return;
+
+			//	FIXME iOS ignores overflow on body
+			try {
+				var scrollBarWidth = window.innerWidth - document.body.clientWidth;
+
+				var target = document.body;
+
+				target.style.paddingRight = scrollBarWidth + 'px';
+				target.style.overflowY = 'hidden';
+			} catch (err) {
+				console.error('Failed to find body element. Err:', err);
+			}
+		}
+	}, {
+		key: 'componentWillUnmount',
+		value: function componentWillUnmount() {
+			if (typeof window === 'undefined' || lockCount === 0) return;
+
+			lockCount--;
+			if (lockCount > 0) return; // Still locked
+
+			//	FIXME iOS ignores overflow on body
+			try {
+				var target = document.body;
+
+				target.style.paddingRight = '';
+				target.style.overflowY = '';
+			} catch (err) {
+				console.error('Failed to find body element. Err:', err);
+			}
+		}
+	}, {
+		key: 'render',
+		value: function render() {
+			return null;
+		}
+	}]);
+
+	return ScrollLock;
+})(_react.Component);
+
+exports['default'] = ScrollLock;
+module.exports = exports['default'];
+
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{}],34:[function(require,module,exports){
+(function (global){
+'use strict';
+
+Object.defineProperty(exports, '__esModule', {
+	value: true
+});
+
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 
 var _react = (typeof window !== "undefined" ? window['React'] : typeof global !== "undefined" ? global['React'] : null);
@@ -2783,8 +3049,11 @@ function Thumbnail(_ref, _ref2) {
 
 	return _react2['default'].createElement('div', {
 		className: (0, _aphroditeNoImportant.css)(classes.thumbnail, active && classes.thumbnail__active),
-		onClick: function () {
-			return onClick(index);
+		onClick: function (e) {
+			e.preventDefault();
+			e.stopPropagation();
+
+			onClick(index);
 		},
 		style: { backgroundImage: 'url("' + url + '")' }
 	});
@@ -2824,7 +3093,7 @@ exports['default'] = Thumbnail;
 module.exports = exports['default'];
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"../theme":38,"../utils":43,"aphrodite/no-important":6}],34:[function(require,module,exports){
+},{"../theme":39,"../utils":43,"aphrodite/no-important":6}],35:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -2837,7 +3106,7 @@ exports["default"] = function (fill) {
 
 module.exports = exports["default"];
 
-},{}],35:[function(require,module,exports){
+},{}],36:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -2850,7 +3119,7 @@ exports["default"] = function (fill) {
 
 module.exports = exports["default"];
 
-},{}],36:[function(require,module,exports){
+},{}],37:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -2863,7 +3132,7 @@ exports["default"] = function (fill) {
 
 module.exports = exports["default"];
 
-},{}],37:[function(require,module,exports){
+},{}],38:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -2872,7 +3141,7 @@ module.exports = {
 	close: require('./close')
 };
 
-},{"./arrowLeft":34,"./arrowRight":35,"./close":36}],38:[function(require,module,exports){
+},{"./arrowLeft":35,"./arrowRight":36,"./close":37}],39:[function(require,module,exports){
 // ==============================
 // THEME
 // ==============================
@@ -2931,7 +3200,7 @@ theme.arrow = {
 
 module.exports = theme;
 
-},{}],39:[function(require,module,exports){
+},{}],40:[function(require,module,exports){
 /**
 	Bind multiple component methods:
 
@@ -2952,53 +3221,6 @@ module.exports = function bindFunctions(functions) {
 	functions.forEach(function (f) {
 		return _this[f] = _this[f].bind(_this);
 	});
-};
-
-},{}],40:[function(require,module,exports){
-// Don't try and apply overflow/padding if the scroll is already blocked
-'use strict';
-
-var bodyBlocked = false;
-
-var allowScroll = function allowScroll() {
-	if (typeof window === 'undefined' || !bodyBlocked) return;
-
-	//  FIXME iOS ignores overflow on body
-
-	try {
-		var target = document.body;
-
-		target.style.paddingRight = '';
-		target.style.overflowY = '';
-
-		bodyBlocked = false;
-	} catch (err) {
-		console.error('Failed to find body element. Err:', err);
-	}
-};
-
-var blockScroll = function blockScroll() {
-	if (typeof window === 'undefined' || bodyBlocked) return;
-
-	//  FIXME iOS ignores overflow on body
-
-	try {
-		var scrollBarWidth = window.innerWidth - document.body.clientWidth;
-
-		var target = document.body;
-
-		target.style.paddingRight = scrollBarWidth + 'px';
-		target.style.overflowY = 'hidden';
-
-		bodyBlocked = true;
-	} catch (err) {
-		console.error('Failed to find body element. Err:', err);
-	}
-};
-
-module.exports = {
-	allowScroll: allowScroll,
-	blockScroll: blockScroll
 };
 
 },{}],41:[function(require,module,exports){
@@ -3044,10 +3266,6 @@ var _bindFunctions = require('./bindFunctions');
 
 var _bindFunctions2 = _interopRequireDefault(_bindFunctions);
 
-var _bodyScroll = require('./bodyScroll');
-
-var _bodyScroll2 = _interopRequireDefault(_bodyScroll);
-
 var _canUseDom = require('./canUseDom');
 
 var _canUseDom2 = _interopRequireDefault(_canUseDom);
@@ -3058,10 +3276,9 @@ var _deepMerge2 = _interopRequireDefault(_deepMerge);
 
 module.exports = {
 	bindFunctions: _bindFunctions2['default'],
-	bodyScroll: _bodyScroll2['default'],
 	canUseDom: _canUseDom2['default'],
 	deepMerge: _deepMerge2['default']
 };
 
-},{"./bindFunctions":39,"./bodyScroll":40,"./canUseDom":41,"./deepMerge":42}]},{},[24])(24)
+},{"./bindFunctions":40,"./canUseDom":41,"./deepMerge":42}]},{},[24])(24)
 });
