@@ -1,6 +1,6 @@
 import React, { Component, PropTypes } from 'react';
 import { css, StyleSheet } from 'aphrodite/no-important';
-// import Swipeable from 'react-swipeable';
+ import Swipeable from 'react-swipeable';
 
 import theme from './theme';
 import Arrow from './components/Arrow';
@@ -17,9 +17,17 @@ class Lightbox extends Component {
 	constructor () {
 		super();
 
+		this.state = {
+			isSwipingLeft: false,
+			isSwipingRight: false,
+			swipeDeltaX: 0
+		}
+
 		bindFunctions.call(this, [
 			'gotoNext',
 			'gotoPrev',
+			'onSwipingLeft',
+			'onSwipingRight',
 			'handleKeyboardInput',
 		]);
 	}
@@ -85,21 +93,23 @@ class Lightbox extends Component {
 		}
 	}
 	gotoNext (event) {
-		if (this.props.currentImage === (this.props.images.length - 1)) return;
+		if (this._isLastImage()) return;
 		if (event) {
 			event.preventDefault();
 			event.stopPropagation();
 		}
 		this.props.onClickNext();
+		this._resetSwipe();
 
 	}
 	gotoPrev (event) {
-		if (this.props.currentImage === 0) return;
+		if (this._isFirstImage()) return;
 		if (event) {
 			event.preventDefault();
 			event.stopPropagation();
 		}
 		this.props.onClickPrev();
+		this._resetSwipe();
 
 	}
 	handleKeyboardInput (event) {
@@ -115,6 +125,35 @@ class Lightbox extends Component {
 		}
 		return false;
 
+	}
+	onSwipingLeft (e, deltaX) {
+		if (this._isLastImage()) return;
+		this.setState({
+			isSwipingLeft: true,
+			isSwipingRight: false,
+			swipeDeltaX: deltaX
+		})
+	}
+	onSwipingRight (e, deltaX) {
+		if (this._isFirstImage()) return;
+		this.setState({
+			isSwipingLeft: false,
+			isSwipingRight: true,
+			swipeDeltaX: deltaX
+		})
+	}
+	_isFirstImage() {
+		return this.props.currentImage === 0;
+	}
+	_isLastImage () {
+		return this.props.currentImage === (this.props.images.length - 1);
+	}
+	_resetSwipe() {
+		this.setState({
+			isSwipingLeft: false,
+			isSwipingRight: false,
+			swipeDeltaX: 0
+		})
 	}
 
 	// ==============================
@@ -200,6 +239,10 @@ class Lightbox extends Component {
 
 		const image = images[currentImage];
 
+		const imageLeft = this.state.isSwipingRight ? images[currentImage - 1] : null;
+		const imageRight = this.state.isSwipingLeft ? images[currentImage + 1] : null;
+		const deltaX = this.state.isSwipingRight ? this.state.swipeDeltaX : this.state.isSwipingLeft ? -this.state.swipeDeltaX : 0;
+
 		let srcset;
 		let sizes;
 
@@ -213,29 +256,71 @@ class Lightbox extends Component {
 
 		return (
 			<figure className={css(classes.figure)}>
-				{/*
-					Re-implement when react warning "unknown props"
-					https://fb.me/react-unknown-prop is resolved
-					<Swipeable onSwipedLeft={this.gotoNext} onSwipedRight={this.gotoPrev} />
-				*/}
-				<img
-					className={css(classes.image)}
-					onClick={!!onClickImage && onClickImage}
-					sizes={sizes}
-					src={image.src}
-					srcSet={srcset}
-					style={{
-						cursor: this.props.onClickImage ? 'pointer' : 'auto',
-						maxHeight: `calc(100vh - ${heightOffset})`,
-					}}
-				/>
-				<Footer
-					caption={images[currentImage].caption}
-					countCurrent={currentImage + 1}
-					countSeparator={imageCountSeparator}
-					countTotal={images.length}
-					showCount={showImageCount}
-				/>
+				<Swipeable
+					onSwipedLeft={this.gotoNext}
+					onSwipedRight={this.gotoPrev}
+					onSwipingLeft={this.onSwipingLeft}
+					onSwipingRight={this.onSwipingRight}
+				>
+
+					{
+						imageLeft ?
+							<img
+								className={css(classes.image)}
+								sizes={sizes}
+								src={imageLeft.src}
+								style={{
+									cursor: this.props.onClickImage ? 'pointer' : 'auto',
+									//maxHeight: `calc(100vh - ${heightOffset})`,
+									marginLeft: `calc(-100vw + ${deltaX}px)`,
+									position: 'absolute',
+									top: '50%',
+									left: '50%',
+									transform: 'translate(-50%, -50%)'
+								}}
+							/>
+							:
+							null
+					}
+					<img
+						className={css(classes.image)}
+						onClick={!!onClickImage && onClickImage}
+						sizes={sizes}
+						src={image.src}
+						srcSet={srcset}
+						style={{
+							cursor: this.props.onClickImage ? 'pointer' : 'auto',
+							//maxHeight: `calc(100vh - ${heightOffset})`,
+							marginLeft: deltaX,
+						}}
+					/>
+					{
+						imageRight ?
+							<img
+								className={css(classes.image)}
+								sizes={sizes}
+								src={imageRight.src}
+								style={{
+									cursor: this.props.onClickImage ? 'pointer' : 'auto',
+									//maxHeight: `calc(100vh - ${heightOffset})`,
+									marginLeft: `calc(100vw + ${deltaX}px)`,
+									position: 'absolute',
+									top: '50%',
+									left: '50%',
+									transform: 'translate(-50%, -50%)'
+								}}
+							/>
+							:
+							null
+					}
+					<Footer
+						caption={images[currentImage].caption}
+						countCurrent={currentImage + 1}
+						countSeparator={imageCountSeparator}
+						countTotal={images.length}
+						showCount={showImageCount}
+					/>
+				</Swipeable>
 			</figure>
 		);
 	}
