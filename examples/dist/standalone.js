@@ -1636,7 +1636,7 @@ var Lightbox = (function (_Component) {
 			swipeDeltaX: 0
 		};
 
-		_utils.bindFunctions.call(this, ['setImageRef', 'gotoNext', 'gotoPrev', 'onSwipingLeft', 'onSwipingRight', 'onStopSwiping', 'onMotionRest', 'handleKeyboardInput']);
+		_utils.bindFunctions.call(this, ['gotoNext', 'gotoPrev', 'onSwipingLeft', 'onSwipingRight', 'onStopSwiping', 'onMotionRest', 'handleKeyboardInput']);
 	}
 
 	_createClass(Lightbox, [{
@@ -1694,11 +1694,6 @@ var Lightbox = (function (_Component) {
 		// ==============================
 
 	}, {
-		key: 'setImageRef',
-		value: function setImageRef(ref) {
-			this.imageRef = ref;
-		}
-	}, {
 		key: 'preloadImage',
 		value: function preloadImage(idx) {
 			var image = this.props.images[idx];
@@ -1721,8 +1716,7 @@ var Lightbox = (function (_Component) {
 				event.preventDefault();
 				event.stopPropagation();
 			}
-			this.props.onClickNext();
-			this.resetSwipe();
+			this.resetSwipe(this.props.onClickNext);
 		}
 	}, {
 		key: 'gotoPrev',
@@ -1732,8 +1726,7 @@ var Lightbox = (function (_Component) {
 				event.preventDefault();
 				event.stopPropagation();
 			}
-			this.props.onClickPrev();
-			this.resetSwipe();
+			this.resetSwipe(this.props.onClickPrev);
 		}
 	}, {
 		key: 'handleKeyboardInput',
@@ -1813,11 +1806,13 @@ var Lightbox = (function (_Component) {
 		}
 	}, {
 		key: 'resetSwipe',
-		value: function resetSwipe() {
+		value: function resetSwipe(onReset) {
 			this.setState({
 				isSwipingLeft: false,
 				isSwipingRight: false,
 				swipeDeltaX: 0
+			}, function () {
+				onReset ? onReset() : null;
 			});
 		}
 
@@ -1944,102 +1939,91 @@ var Lightbox = (function (_Component) {
 						onSwipingLeft: this.onSwipingLeft,
 						onSwipingRight: this.onSwipingRight
 					},
-					imageLeft ? _react2['default'].createElement(
-						_reactMotion.Motion,
-						{ style: motionStyle },
-						function (_ref) {
-							var deltaX = _ref.deltaX;
-							return _react2['default'].createElement(
-								'div',
-								{
-									className: (0, _aphroditeNoImportant.css)(classes.imageContainer),
-									style: { marginLeft: -window.innerWidth + deltaX }
-								},
-								_react2['default'].createElement('img', {
-									className: (0, _aphroditeNoImportant.css)(classes.image),
-									sizes: sizes,
-									src: imageLeft.src,
-									style: {
-										cursor: _this2.props.onClickImage ? 'pointer' : 'auto',
-										maxHeight: 'calc(100vh - ' + heightOffset + ')'
-									}
-								}),
-								_react2['default'].createElement(_componentsFooter2['default'], {
-									caption: images[currentImage].caption,
-									countCurrent: currentImage + 1,
-									countSeparator: imageCountSeparator,
-									countTotal: images.length,
-									showCount: showImageCount
-								})
-							);
-						}
-					) : null,
 					_react2['default'].createElement(
 						_reactMotion.Motion,
 						{
 							style: motionStyle,
 							onRest: this.onMotionRest
 						},
-						function (_ref2) {
-							var deltaX = _ref2.deltaX;
+						function (_ref) {
+							var deltaX = _ref.deltaX;
 							return _react2['default'].createElement(
 								'div',
-								{
-									className: (0, _aphroditeNoImportant.css)(classes.imageContainer),
-									style: { marginLeft: deltaX }
-								},
-								_react2['default'].createElement('img', {
-									ref: _this2.setImageRef,
-									className: (0, _aphroditeNoImportant.css)(classes.image),
-									onClick: !!onClickImage && onClickImage,
-									sizes: sizes,
-									src: image.src,
-									srcSet: srcset,
-									style: {
-										cursor: _this2.props.onClickImage ? 'pointer' : 'auto',
-										maxHeight: 'calc(100vh - ' + heightOffset + ')'
-									}
-								}),
-								_react2['default'].createElement(_componentsFooter2['default'], {
-									caption: images[currentImage].caption,
-									countCurrent: currentImage + 1,
-									countSeparator: imageCountSeparator,
-									countTotal: images.length,
-									showCount: showImageCount
-								})
+								null,
+								imageLeft ? _react2['default'].createElement(
+									'div',
+									{
+										className: (0, _aphroditeNoImportant.css)(classes.imageContainer),
+										style: { marginLeft: -window.innerWidth + deltaX }
+									},
+									_react2['default'].createElement('img', {
+										className: (0, _aphroditeNoImportant.css)(classes.image),
+										sizes: sizes,
+										src: imageLeft.src,
+										style: {
+											cursor: _this2.props.onClickImage ? 'pointer' : 'auto',
+											maxHeight: 'calc(100vh - ' + heightOffset + ')'
+										}
+									}),
+									_react2['default'].createElement(_componentsFooter2['default'], {
+										caption: images[currentImage - 1].caption,
+										countCurrent: currentImage,
+										countSeparator: imageCountSeparator,
+										countTotal: images.length,
+										showCount: showImageCount
+									})
+								) : null,
+								_react2['default'].createElement(
+									'div',
+									{
+										className: (0, _aphroditeNoImportant.css)(classes.imageContainer),
+										style: { marginLeft: deltaX }
+									},
+									_react2['default'].createElement('img', {
+										className: (0, _aphroditeNoImportant.css)(classes.image),
+										onClick: !!onClickImage && onClickImage,
+										sizes: sizes,
+										src: image.src,
+										srcSet: srcset,
+										style: {
+											cursor: _this2.props.onClickImage ? 'pointer' : 'auto',
+											maxHeight: 'calc(100vh - ' + heightOffset + ')'
+										}
+									}),
+									_react2['default'].createElement(_componentsFooter2['default'], {
+										caption: images[currentImage].caption,
+										countCurrent: currentImage + 1,
+										countSeparator: imageCountSeparator,
+										countTotal: images.length,
+										showCount: showImageCount
+									})
+								),
+								imageRight ? _react2['default'].createElement(
+									'div',
+									{
+										className: (0, _aphroditeNoImportant.css)(classes.imageContainer),
+										style: { marginLeft: window.innerWidth + deltaX }
+									},
+									_react2['default'].createElement('img', {
+										className: (0, _aphroditeNoImportant.css)(classes.image),
+										sizes: sizes,
+										src: imageRight.src,
+										style: {
+											cursor: _this2.props.onClickImage ? 'pointer' : 'auto',
+											maxHeight: 'calc(100vh - ' + heightOffset + ')'
+										}
+									}),
+									_react2['default'].createElement(_componentsFooter2['default'], {
+										caption: images[currentImage + 1].caption,
+										countCurrent: currentImage + 2,
+										countSeparator: imageCountSeparator,
+										countTotal: images.length,
+										showCount: showImageCount
+									})
+								) : null
 							);
 						}
-					),
-					imageRight ? _react2['default'].createElement(
-						_reactMotion.Motion,
-						{ style: motionStyle },
-						function (_ref3) {
-							var deltaX = _ref3.deltaX;
-							return _react2['default'].createElement(
-								'div',
-								{
-									className: (0, _aphroditeNoImportant.css)(classes.imageContainer),
-									style: { marginLeft: window.innerWidth + deltaX }
-								},
-								_react2['default'].createElement('img', {
-									className: (0, _aphroditeNoImportant.css)(classes.image),
-									sizes: sizes,
-									src: imageRight.src,
-									style: {
-										cursor: _this2.props.onClickImage ? 'pointer' : 'auto',
-										maxHeight: 'calc(100vh - ' + heightOffset + ')'
-									}
-								}),
-								_react2['default'].createElement(_componentsFooter2['default'], {
-									caption: images[currentImage].caption,
-									countCurrent: currentImage + 1,
-									countSeparator: imageCountSeparator,
-									countTotal: images.length,
-									showCount: showImageCount
-								})
-							);
-						}
-					) : null
+					)
 				)
 			);
 		}
@@ -2131,7 +2115,8 @@ var classes = _aphroditeNoImportant.StyleSheet.create({
 		top: '50%',
 		left: '50%',
 		transform: 'translate(-50%, -50%)',
-		width: '100%'
+		width: '100%',
+		marginTop: _theme2['default'].footer.height / 2
 	},
 	image: {
 		display: 'block', // removes browser default gutter
@@ -2398,6 +2383,7 @@ var defaultStyles = {
 		justifyContent: 'space-between',
 		left: 0,
 		lineHeight: 1.3,
+		height: _theme2['default'].footer.height,
 		paddingBottom: _theme2['default'].footer.gutter.vertical,
 		paddingLeft: _theme2['default'].footer.gutter.horizontal,
 		paddingRight: _theme2['default'].footer.gutter.horizontal,

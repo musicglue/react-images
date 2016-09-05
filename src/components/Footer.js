@@ -57,6 +57,7 @@ const defaultStyles = {
 		justifyContent: 'space-between',
 		left: 0,
 		lineHeight: 1.3,
+		height: defaults.footer.height,
 		paddingBottom: defaults.footer.gutter.vertical,
 		paddingLeft: defaults.footer.gutter.horizontal,
 		paddingRight: defaults.footer.gutter.horizontal,

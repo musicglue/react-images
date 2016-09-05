@@ -25,7 +25,6 @@ class Lightbox extends Component {
 		}
 
 		bindFunctions.call(this, [
-			'setImageRef',
 			'gotoNext',
 			'gotoPrev',
 			'onSwipingLeft',
@@ -83,9 +82,6 @@ class Lightbox extends Component {
 	// METHODS
 	// ==============================
 
-	setImageRef (ref) {
-		this.imageRef = ref;
-	}
 	preloadImage (idx) {
 		const image = this.props.images[idx];
 
@@ -105,8 +101,7 @@ class Lightbox extends Component {
 			event.preventDefault();
 			event.stopPropagation();
 		}
-		this.props.onClickNext();
-		this.resetSwipe();
+		this.resetSwipe(this.props.onClickNext);
 
 	}
 	gotoPrev (event) {
@@ -115,8 +110,7 @@ class Lightbox extends Component {
 			event.preventDefault();
 			event.stopPropagation();
 		}
-		this.props.onClickPrev();
-		this.resetSwipe();
+		this.resetSwipe(this.props.onClickPrev);
 
 	}
 	handleKeyboardInput (event) {
@@ -154,7 +148,6 @@ class Lightbox extends Component {
 		this.setState({
 			swipeDeltaX: windowWidth
 		})
-
 	}
 	onMotionRest () {
 		const wasSwipingLeft = this.state.isSwipingLeft;
@@ -182,12 +175,12 @@ class Lightbox extends Component {
 	isLastImage () {
 		return this.props.currentImage === (this.props.images.length - 1);
 	}
-	resetSwipe() {
+	resetSwipe(onReset) {
 		this.setState({
 			isSwipingLeft: false,
 			isSwipingRight: false,
 			swipeDeltaX: 0
-		})
+		}, () => { onReset ? onReset() : null })
 	}
 
 	// ==============================
@@ -306,98 +299,91 @@ class Lightbox extends Component {
 					onSwipingRight={this.onSwipingRight}
 				>
 
-					{
-						imageLeft ?
-							<Motion style={motionStyle}>
-								{({deltaX}) => (
-									<div
-										className={css(classes.imageContainer)}
-										style={{ marginLeft: -window.innerWidth + deltaX }}
-									>
-										<img
-											className={css(classes.image)}
-											sizes={sizes}
-											src={imageLeft.src}
-											style={{
-												cursor: this.props.onClickImage ? 'pointer' : 'auto',
-												maxHeight: `calc(100vh - ${heightOffset})`,
-											}}
-										/>
-
-										<Footer
-											caption={images[currentImage].caption}
-											countCurrent={currentImage + 1}
-											countSeparator={imageCountSeparator}
-											countTotal={images.length}
-											showCount={showImageCount}
-										/>
-									</div>
-								)}
-							</Motion>
-							:
-							null
-					}
 					<Motion
 						style={motionStyle}
 						onRest={this.onMotionRest}
 					>
 						{({deltaX}) => (
-							<div
-								className={css(classes.imageContainer)}
-								style={{ marginLeft: deltaX }}
-							>
-								<img
-									ref={this.setImageRef}
-									className={css(classes.image)}
-									onClick={!!onClickImage && onClickImage}
-									sizes={sizes}
-									src={image.src}
-									srcSet={srcset}
-									style={{
-										cursor: this.props.onClickImage ? 'pointer' : 'auto',
-										maxHeight: `calc(100vh - ${heightOffset})`,
-									}}
-								/>
-								<Footer
-									caption={images[currentImage].caption}
-									countCurrent={currentImage + 1}
-									countSeparator={imageCountSeparator}
-									countTotal={images.length}
-									showCount={showImageCount}
-								/>
-							</div>
-						)}
-					</Motion>
-					{
-						imageRight ?
-							<Motion style={motionStyle}>
-								{({deltaX}) => (
-									<div
-										className={css(classes.imageContainer)}
-										style={{ marginLeft: window.innerWidth + deltaX }}
-									>
-										<img
-											className={css(classes.image)}
-											sizes={sizes}
-											src={imageRight.src}
-											style={{
+              <div>
+                {
+                  imageLeft ?
+                    <div
+                      className={css(classes.imageContainer)}
+                      style={{ marginLeft: -window.innerWidth + deltaX }}
+                    >
+                      <img
+                        className={css(classes.image)}
+                        sizes={sizes}
+                        src={imageLeft.src}
+                        style={{
 												cursor: this.props.onClickImage ? 'pointer' : 'auto',
 												maxHeight: `calc(100vh - ${heightOffset})`,
 											}}
-										/>
-										<Footer
-											caption={images[currentImage].caption}
-											countCurrent={currentImage + 1}
-											countSeparator={imageCountSeparator}
-											countTotal={images.length}
-											showCount={showImageCount}
-										/>
-									</div>
-									)}
-								</Motion>
-							:
-							null
-					}
+                      />
+
+                      <Footer
+                        caption={images[currentImage - 1].caption}
+                        countCurrent={currentImage}
+                        countSeparator={imageCountSeparator}
+                        countTotal={images.length}
+                        showCount={showImageCount}
+                      />
+                    </div>
+                    :
+                    null
+                }
+                <div
+                  className={css(classes.imageContainer)}
+                  style={{ marginLeft: deltaX }}
+                >
+                  <img
+                    className={css(classes.image)}
+                    onClick={!!onClickImage && onClickImage}
+                    sizes={sizes}
+                    src={image.src}
+                    srcSet={srcset}
+                    style={{
+                      cursor: this.props.onClickImage ? 'pointer' : 'auto',
+                      maxHeight: `calc(100vh - ${heightOffset})`,
+                    }}
+                  />
+                  <Footer
+                    caption={images[currentImage].caption}
+                    countCurrent={currentImage + 1}
+                    countSeparator={imageCountSeparator}
+                    countTotal={images.length}
+                    showCount={showImageCount}
+                  />
+                </div>
+                {
+                  imageRight ?
+                    <div
+                      className={css(classes.imageContainer)}
+                      style={{ marginLeft: window.innerWidth + deltaX }}
+                    >
+                      <img
+                        className={css(classes.image)}
+                        sizes={sizes}
+                        src={imageRight.src}
+                        style={{
+												cursor: this.props.onClickImage ? 'pointer' : 'auto',
+												maxHeight: `calc(100vh - ${heightOffset})`,
+											}}
+                      />
+                      <Footer
+                        caption={images[currentImage + 1].caption}
+                        countCurrent={currentImage + 2}
+                        countSeparator={imageCountSeparator}
+                        countTotal={images.length}
+                        showCount={showImageCount}
+                      />
+                    </div>
+                    :
+                    null
+                }
+              </div>
+						)}
+					</Motion>
 				</Swipeable>
 			</figure>
 		);
@@ -482,7 +468,8 @@ const classes = StyleSheet.create({
 		top: '50%',
 		left: '50%',
 		transform: 'translate(-50%, -50%)',
-		width: '100%'
+		width: '100%',
+    marginTop: theme.footer.height/2
 	},
 	image: {
 		display: 'block', // removes browser default gutter
