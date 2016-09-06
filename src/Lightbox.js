@@ -308,6 +308,7 @@ class Lightbox extends Component {
                 {
                   imageLeft ?
                     <div
+                      key={currentImage - 1}
                       className={css(classes.imageContainer)}
                       style={{ marginLeft: -window.innerWidth + deltaX }}
                     >
@@ -315,10 +316,11 @@ class Lightbox extends Component {
                         className={css(classes.image)}
                         sizes={sizes}
                         src={imageLeft.src}
+                        srcSet={imageLeft.srcset.join()}
                         style={{
-												cursor: this.props.onClickImage ? 'pointer' : 'auto',
-												maxHeight: `calc(100vh - ${heightOffset})`,
-											}}
+                          cursor: this.props.onClickImage ? 'pointer' : 'auto',
+                          maxHeight: `calc(100vh - ${heightOffset})`,
+                        }}
                       />
 
                       <Footer
@@ -333,6 +335,7 @@ class Lightbox extends Component {
                     null
                 }
                 <div
+                  key={currentImage}
                   className={css(classes.imageContainer)}
                   style={{ marginLeft: deltaX }}
                 >
@@ -358,6 +361,7 @@ class Lightbox extends Component {
                 {
                   imageRight ?
                     <div
+                      key={currentImage + 1}
                       className={css(classes.imageContainer)}
                       style={{ marginLeft: window.innerWidth + deltaX }}
                     >
@@ -365,10 +369,11 @@ class Lightbox extends Component {
                         className={css(classes.image)}
                         sizes={sizes}
                         src={imageRight.src}
+                        srcSet={imageRight.srcset.join()}
                         style={{
-												cursor: this.props.onClickImage ? 'pointer' : 'auto',
-												maxHeight: `calc(100vh - ${heightOffset})`,
-											}}
+                          cursor: this.props.onClickImage ? 'pointer' : 'auto',
+                          maxHeight: `calc(100vh - ${heightOffset})`,
+                        }}
                       />
                       <Footer
                         caption={images[currentImage + 1].caption}

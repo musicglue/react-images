@@ -1953,6 +1953,7 @@ var Lightbox = (function (_Component) {
 								imageLeft ? _react2['default'].createElement(
 									'div',
 									{
+										key: currentImage - 1,
 										className: (0, _aphroditeNoImportant.css)(classes.imageContainer),
 										style: { marginLeft: -window.innerWidth + deltaX }
 									},
@@ -1960,6 +1961,7 @@ var Lightbox = (function (_Component) {
 										className: (0, _aphroditeNoImportant.css)(classes.image),
 										sizes: sizes,
 										src: imageLeft.src,
+										srcSet: imageLeft.srcset.join(),
 										style: {
 											cursor: _this2.props.onClickImage ? 'pointer' : 'auto',
 											maxHeight: 'calc(100vh - ' + heightOffset + ')'
@@ -1976,6 +1978,7 @@ var Lightbox = (function (_Component) {
 								_react2['default'].createElement(
 									'div',
 									{
+										key: currentImage,
 										className: (0, _aphroditeNoImportant.css)(classes.imageContainer),
 										style: { marginLeft: deltaX }
 									},
@@ -2001,6 +2004,7 @@ var Lightbox = (function (_Component) {
 								imageRight ? _react2['default'].createElement(
 									'div',
 									{
+										key: currentImage + 1,
 										className: (0, _aphroditeNoImportant.css)(classes.imageContainer),
 										style: { marginLeft: window.innerWidth + deltaX }
 									},
@@ -2008,6 +2012,7 @@ var Lightbox = (function (_Component) {
 										className: (0, _aphroditeNoImportant.css)(classes.image),
 										sizes: sizes,
 										src: imageRight.src,
+										srcSet: imageRight.srcset.join(),
 										style: {
 											cursor: _this2.props.onClickImage ? 'pointer' : 'auto',
 											maxHeight: 'calc(100vh - ' + heightOffset + ')'
