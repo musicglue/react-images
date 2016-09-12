@@ -135,7 +135,6 @@ class Lightbox extends Component {
 	}
 	onSwiping (event, deltaX, deltaY, absX, absY, velocity) {
 		if ( (this.isFirstImage() && deltaX < 0) || (this.isLastImage() && deltaX > 0) ) return;
-    console.log('deltaX ' + deltaX + '  velocity ' + velocity);
 		this.setState({
 			swipeDeltaX: -deltaX
 		});
