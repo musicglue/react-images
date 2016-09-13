@@ -2006,7 +2006,7 @@ function renderImage(_ref) {
       className: (0, _aphroditeNoImportant.css)(classes.image),
       onClick: !!onClickImage && onClickImage,
       sizes: sizes,
-      src: isVisible ? image.src : "data:",
+      src: isVisible ? image.src : "#",
       srcSet: isVisible ? srcset : null,
       style: {
         cursor: onClickImage ? 'pointer' : 'auto',
